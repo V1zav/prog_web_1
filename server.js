@@ -1,68 +1,113 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const { v4: uuidv4 } = require('uuid');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
+
 const app = express();
 const port = 3000;
+const secret = 'your_jwt_secret'; // Секретний ключ для підпису токенів
 
-app.use(bodyParser.json());
 app.use(cors());
+app.use(bodyParser.json());
 
-let contacts = [];
-
-app.post('/contacts', (req, res) => {
-  const contactData = req.body;
-  const contactWithId = { ...contactData, id: uuidv4() };
-  contacts.push(contactWithId);
-  res.json(contactWithId);
+mongoose.connect('mongodb://localhost:27017/contactsApp', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
 });
 
-app.get('/contacts', (req, res) => {
-  res.json(contacts);
+const userSchema = new mongoose.Schema({
+  username: { type: String, unique: true },
+  email: { type: String, unique: true },
+  password: String
 });
 
-app.get('/contacts/:id', (req, res) => {
-    console.log("Contacts array:", contacts); 
-    const contactId = req.params.id;
-    console.log("Requested contact ID:", contactId);
-    if (Array.isArray(contacts) && contacts.length > 0) {
-      const contact = contacts.find(contact => contact.id === contactId);
-      if (contact) {
-        res.json(contact);
-      } else {
-        res.status(404).send('Contact not found');
-      }
+const contactSchema = new mongoose.Schema({
+  userId: mongoose.Schema.Types.ObjectId,
+  name: String,
+  email: String
+});
+
+const User = mongoose.model('User', userSchema);
+const Contact = mongoose.model('Contact', contactSchema);
+
+app.post('/register', async (req, res) => {
+  const { username, email, password } = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  try {
+    const user = new User({ username, email, password: hashedPassword });
+    await user.save();
+    res.status(201).send({ message: 'User registered successfully' });
+  } catch (error) {
+    if (error.code === 11000) {
+      res.status(400).send({ message: 'Username or Email already exists' });
     } else {
-      res.status(404).send('Contacts list is empty');
+      res.status(500).send({ message: 'Error registering user' });
     }
-  });
+  }
+});
 
-app.delete('/contacts/:id', (req, res) => {
-  const contactId = req.params.id;
-  const index = contacts.findIndex(contact => contact.id === contactId);
-  if (index !== -1) {
-    console.log('Deleting contact:', contacts[index]);
-    contacts.splice(index, 1);
-    res.status(200).send('Contact deleted successfully');
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  const user = await User.findOne({ email });
+  if (user && await bcrypt.compare(password, user.password)) {
+    const authToken = jwt.sign({ userId: user._id }, secret, { expiresIn: '1h' });
+    return res.json({ token: authToken, user: { username: user.username, email: user.email } });
+
+    // Перевірка та обробка токену
+    const requestToken = req.headers['authorization'];
+    if (requestToken) {
+      jwt.verify(requestToken, secret, (err, decoded) => {
+        if (err) {
+          return res.status(401).json({ message: 'Unauthorized' });
+        } else {
+          req.userId = decoded.userId;
+          next();
+        }
+      });
+    } else {
+      return res.status(401).json({ message: 'No token provided' });
+    }
   } else {
-    res.status(404).send('Contact not found');
+    return res.status(401).json({ message: 'Invalid credentials' });
   }
 });
 
 
-app.put('/contacts/:id', (req, res) => {
-  const contactId = req.params.id;
-  console.log("Requested contact ID for editing:", contactId);
-  const updatedContactData = req.body;
-  let contactIndex = contacts.findIndex(contact => contact.id === contactId);
-  if (contactIndex !== -1) {
-    contacts[contactIndex] = { ...contacts[contactIndex], ...updatedContactData };
-    res.json(contacts[contactIndex]);
+app.get('/contacts', async (req, res) => {
+  const contacts = await Contact.find({ userId: req.userId });
+  res.json(contacts);
+});
+
+app.post('/contacts', async (req, res) => {
+  const contact = new Contact({ ...req.body, userId: req.userId });
+  await contact.save();
+  res.status(201).send(contact);
+});
+
+app.put('/contacts/:id', async (req, res) => {
+  const contact = await Contact.findOneAndUpdate(
+    { _id: req.params.id, userId: req.userId },
+    req.body,
+    { new: true }
+  );
+  if (contact) {
+    res.send(contact);
   } else {
-    res.status(404).send('Contact not found');
+    res.status(404).send({ message: 'Contact not found' });
+  }
+});
+
+app.delete('/contacts/:id', async (req, res) => {
+  const contact = await Contact.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+  if (contact) {
+    res.status(204).send();
+  } else {
+    res.status(404).send({ message: 'Contact not found' });
   }
 });
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server is running on http://localhost:${port}`);
 });

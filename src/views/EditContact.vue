@@ -3,6 +3,9 @@
     <nav class="nav-links">
       <router-link to="/" class="nav-link">Home</router-link>
       <router-link to="/about" class="nav-link">About</router-link>
+      <router-link to="/login" class="nav-link">Login</router-link>
+      <router-link to="/register" class="nav-link">Registration</router-link>
+      <router-link to="/profile" class="nav-link">Profile</router-link>
     </nav>
     <h1>Edit Contact</h1>
     <form @submit.prevent="editContact">

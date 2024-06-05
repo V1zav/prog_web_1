@@ -3,6 +3,9 @@
     <nav class="nav-links">
       <router-link to="/" class="nav-link">Home</router-link>
       <router-link to="/about" class="nav-link">About</router-link>
+      <router-link to="/login" class="nav-link">Login</router-link>
+      <router-link to="/register" class="nav-link">Registration</router-link>
+      <router-link to="/profile" class="nav-link">Profile</router-link>
     </nav>
     <h1>Contacts Page</h1>
     <div>
@@ -11,10 +14,10 @@
     </div>
     <input type="text" v-model="searchQuery" placeholder="Search...">
     <ul>
-      <li v-for="contact in filteredContacts" :key="contact.id">
+      <li v-for="contact in filteredContacts" :key="contact._id">
         {{ contact.name }} - {{ contact.email }}
-        <button @click="editContact(contact.id)" class="edit-button">Edit</button>
-        <button @click="deleteContact(contact.id)" class="delete-button">Delete</button>
+        <button @click="editContact(contact._id)" class="edit-button">Edit</button>
+        <button @click="deleteContact(contact._id)" class="delete-button">Delete</button>
       </li>
     </ul>
     <router-link to="/contacts/add">
