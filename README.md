@@ -20,5 +20,10 @@ npm install
 npm run serve
 ```
 
+```
+npm install jsonwebtoken bcryptjs mongoose
+```
+
 node server.js
 для серверної частини
+також для працездатності серверної частини повинна бути встановлена mongodb
